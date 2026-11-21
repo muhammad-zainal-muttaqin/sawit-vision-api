@@ -3,7 +3,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
-COPY models/best.onnx ./models/best.onnx
+COPY models/ffb-detector-yolo26n.onnx ./models/ffb-detector-yolo26n.onnx
 ENV DB_PATH=/data/detections.db
 VOLUME ["/data"]
 EXPOSE 8000

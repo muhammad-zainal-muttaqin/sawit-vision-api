@@ -21,7 +21,7 @@
 <body>
 <main>
   <h1>Sawit Vision API</h1>
-  <p class="sub">Oil palm fruit bunch detection &amp; ripeness classification — YOLOv8n · ONNX Runtime · FastAPI · SQLite. <a href="/docs">API docs</a></p>
+  <p class="sub">Oil palm fruit bunch detection, ripeness B1 (ripe) to B4 (unripe) — YOLO26n · ONNX Runtime · FastAPI · SQLite. <a href="/docs">API docs</a></p>
   <div class="card">
     <div class="row">
       <input type="file" id="file" accept="image/*">
@@ -38,7 +38,7 @@
   </div>
 </main>
 <script>
-const COLORS = {Ripe:'#d9480f', Underripe:'#e8a33d', Unripe:'#2f9e44', Flower:'#ae3ec9', Abnormal:'#868e96'};
+const COLORS = {B1:'#d9480f', B2:'#f08c00', B3:'#74b816', B4:'#2b8a3e', Bunch:'#d9480f'};
 const $ = id => document.getElementById(id);
 async function refresh() {
   const [h, s] = await Promise.all([fetch('/history?limit=10').then(r=>r.json()), fetch('/stats').then(r=>r.json())]);

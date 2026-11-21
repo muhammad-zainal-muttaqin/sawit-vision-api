@@ -23,10 +23,10 @@ def _jpeg(color=(120, 160, 90), size=(320, 240)) -> bytes:
     return buf.getvalue()
 
 
-def test_health_lists_five_classes():
+def test_health_lists_four_ripeness_grades():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json()["classes"] == ["Abnormal", "Flower", "Ripe", "Underripe", "Unripe"]
+    assert r.json()["classes"] == ["B1", "B2", "B3", "B4"]
 
 
 def test_detect_returns_schema_and_is_logged():

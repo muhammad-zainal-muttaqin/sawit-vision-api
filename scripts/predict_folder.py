@@ -13,17 +13,18 @@ from PIL import Image, ImageDraw, ImageOps
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.detector import Detector  # noqa: E402
 
-COLORS = {"Bunch": "#e8590c", "Ripe": "#d9480f", "Underripe": "#e8a33d", "Unripe": "#2f9e44", "Flower": "#ae3ec9", "Abnormal": "#868e96"}
+COLORS = {"B1": "#e8590c", "B2": "#f59f00", "B3": "#94d82d", "B4": "#2f9e44", "Bunch": "#e8590c", "Ripe": "#d9480f", "Underripe": "#e8a33d", "Unripe": "#2f9e44", "Flower": "#ae3ec9", "Abnormal": "#868e96"}
 
 ap = argparse.ArgumentParser()
 ap.add_argument("images"); ap.add_argument("out")
 ap.add_argument("--conf", type=float, default=0.25); ap.add_argument("--vis", type=int, default=24)
 ap.add_argument("--agnostic", action="store_true", help="detection only, one class 'Bunch'")
+ap.add_argument("--model", default=None, help="ONNX file (default models/ffb-detector-yolo26n.onnx)")
 a = ap.parse_args()
 src, out = Path(a.images), Path(a.out)
 (out / "prelabels").mkdir(parents=True, exist_ok=True); (out / "vis").mkdir(exist_ok=True)
 
-det = Detector(Path(__file__).resolve().parent.parent / "models" / "best.onnx")
+det = Detector(a.model or Path(__file__).resolve().parent.parent / "models" / "ffb-detector-yolo26n.onnx")
 files = sorted(p for p in src.iterdir() if p.suffix.lower() in {".jpg", ".jpeg", ".png"})
 vis_every = max(1, len(files) // a.vis) if a.vis else 0
 boxes_rows, img_rows, lat, load_t = [], [], [], []

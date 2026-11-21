@@ -14,7 +14,7 @@ from .db import DetectionLog
 from .detector import Detector
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_PATH = Path(os.getenv("MODEL_PATH", ROOT / "models" / "best.onnx"))
+MODEL_PATH = Path(os.getenv("MODEL_PATH", ROOT / "models" / "ffb-detector-yolo26n.onnx"))
 DB_PATH = Path(os.getenv("DB_PATH", ROOT / "data" / "detections.db"))
 MAX_BYTES = 10 * 1024 * 1024
 
@@ -24,7 +24,7 @@ log = DetectionLog(DB_PATH)
 
 app = FastAPI(
     title="Sawit Vision API",
-    description="Detects oil palm fresh fruit bunches and classifies ripeness (YOLOv8n exported to ONNX).",
+    description="Detects oil palm fresh fruit bunches and grades ripeness B1 (ripe) to B4 (unripe) with a YOLO26n ONNX model.",
     version="1.0.0",
 )
 

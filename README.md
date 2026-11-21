@@ -1,71 +1,72 @@
 # sawit-vision-api
 
-Detects oil palm fresh fruit bunches in a photo and labels each one `Ripe`, `Underripe`, `Unripe`, `Flower` or `Abnormal`.
-A YOLOv8n model I trained during my research work, exported to ONNX and served with FastAPI. Every request is logged to SQLite.
+Finds oil palm fresh fruit bunches in a photo and grades each one from `B1` (ripe) to `B4` (unripe), the grading used in the
+[SawitMVC dataset](https://huggingface.co/datasets/ULM-DS-Lab/SawitMVC-YOLO). Served with FastAPI and ONNX Runtime; every request is logged to SQLite.
 
-The same model also runs in the browser on my site: https://muhammad-zainal-muttaqin.github.io/#demo
+The same model runs in the browser on my site: https://muhammad-zainal-muttaqin.github.io/#demo
 
 ![detections](docs/detections.jpg)
 
 ## Model
 
-| | |
-|---|---|
-| Architecture | YOLOv8n, 640 px input, 300 epochs |
-| Validation precision / recall | 0.783 / 0.716 |
-| Validation mAP@50 / mAP@50-95 | 0.771 / 0.496 |
-| Size | 6.3 MB `.pt`, 11.7 MB `.onnx` |
+`models/ffb-detector-yolo26n.onnx` is the YOLO26n detector our lab ships in the
+[PalmAnnotate](https://github.com/ULM-SawitMVC/PalmAnnotate-Kotlin) field app, trained on SawitMVC (953 trees, 3,992 photos), 640 px input, 9.8 MB.
 
-Inference does not need PyTorch. Letterbox pre-processing and NMS are in NumPy ([`app/detector.py`](app/detector.py)), so the runtime only needs `onnxruntime`, `numpy` and `Pillow`.
+Inference does not need PyTorch. Letterbox pre-processing and NMS are written in NumPy ([`app/detector.py`](app/detector.py)), the same steps as the
+Android app, so the runtime only needs `onnxruntime`, `numpy` and `Pillow`.
+
+An older YOLOv8n model (5 classes, Dec 2025) is kept in `models/legacy-yolov8n/` for comparison.
 
 ## Speed
 
-One 476×636 photo, Apple M1 (8 GB), median of 50 runs including pre/post-processing (`python scripts/benchmark.py IMAGE`):
+One 810×1080 photo, Apple M1 (8 GB), median of 50 runs including pre/post-processing (`python scripts/benchmark.py IMAGE`):
 
 | Runtime | Median | p95 |
 |---|---|---|
-| ONNX Runtime + CoreML | 23 ms | 31 ms |
-| PyTorch (Ultralytics), CPU | 88 ms | 115 ms |
-| ONNX Runtime, CPU only | 166 ms | 201 ms |
+| ONNX Runtime + CoreML | 37 ms | 48 ms |
+| ONNX Runtime, CPU only | 100 ms | 128 ms |
 
-The CPU-only number was measured while the laptop was under other load.
+In the browser (ONNX Runtime Web with WebGPU) the same model takes about 40–70 ms per photo after warm-up.
 
-## Field test
+## Field test: new model vs old model
 
-I ran the model on 568 new phone photos (71 trees × 8 sides, Damimas block, Nov 2026) that were not used in training
-(`scripts/predict_folder.py`). Those photos have no labels yet, so this is a qualitative check, not an mAP:
+568 new phone photos (71 trees × 8 sides, Damimas block, Nov 2026), not used in training. They have no labels yet, so this compares
+the two models rather than measuring mAP (`scripts/predict_folder.py`, confidence 0.25, detection only):
 
-- 691 boxes in detection-only mode, median 6 ms per photo with CoreML.
-- Bunches in the crown that are found are usually correct.
-- Weak points: about a third of the boxes fall on ground, dry fronds or trees in the background, and small bunches in photos taken from far away are often missed. The training photos were closer to the crown.
-- The ripeness classes do not transfer to these photos. Red bunches that are clearly ripe come out as `Underripe` with high confidence (on `samples/palm-1.jpg` the red bunch scores 0.84 Underripe and 0.06 Ripe). Until it is retrained on this field data, use `agnostic=true` (detection only) and treat the ripeness label as unreliable.
+| | YOLO26n (this repo) | YOLOv8n (legacy) |
+|---|---|---|
+| Boxes | 717 | 691 |
+| Boxes centred in the bottom 40% of the photo (ground, trunk) | 2 | 216 |
+| Boxes touching the photo edge | 0 | 167 |
 
-Next step is to label a subset of these photos and fine-tune on them.
+Looking at the photos: the new model puts almost nothing on ground or background trees, grades ripe red bunches as `B1` where the old
+model called them `Underripe`, and still mixes up neighbouring grades (a red bunch graded `B2`, for example). Small bunches near the top of
+the crown in photos taken from far away are still missed.
 
 ## API
 
 | Method | Path | |
 |---|---|---|
-| `POST` | `/detect?conf=0.25&iou=0.45&agnostic=false` | Multipart `file`. Returns boxes, labels, confidence, count per class and latency. `agnostic=true` gives detection only (every box is `Bunch`) |
+| `POST` | `/detect?conf=0.25&iou=0.45&agnostic=false` | Multipart `file`. Returns boxes, grade, confidence, count per grade and latency. `agnostic=true` gives detection only (every box is `Bunch`) |
 | `GET` | `/history?limit=20` | Latest requests from the SQLite log |
-| `GET` | `/stats` | Request count, objects per class, median latency |
+| `GET` | `/stats` | Request count, objects per grade, median latency |
 | `GET` | `/health` | Model file, execution provider, class names |
 | `GET` | `/` | Upload page that draws the boxes |
 | `GET` | `/docs` | Swagger UI |
 
 ```bash
-curl -F "file=@samples/palm-2.jpg" "http://localhost:8000/detect?conf=0.3"
-# response (only the first of the 3 detections shown)
+curl -F "file=@samples/palm-5.jpg" "http://localhost:8000/detect?conf=0.3"
+# response (only the first of the 6 detections shown)
 ```
 
 ```json
 {
   "id": 2,
   "image": {"width": 810, "height": 1080},
-  "count": 3,
-  "counts": {"Unripe": 2, "Ripe": 1},
-  "latency_ms": 7.5,
-  "detections": [{"label": "Unripe", "confidence": 0.7612, "box": [283.4, 332.0, 410.2, 448.0]}]
+  "count": 6,
+  "counts": {"B1": 1, "B2": 2, "B3": 2, "B4": 1},
+  "latency_ms": 12.9,
+  "detections": [{"label": "B1", "confidence": 0.6777, "box": [315.1, 422.3, 429.0, 595.3]}]
 }
 ```
 
@@ -91,9 +92,9 @@ pip install -r requirements.txt pytest httpx
 pytest -q
 ```
 
-After retraining, re-export with `python scripts/export_onnx.py` (needs `ultralytics`).
+Use another model with `MODEL_PATH=path/to/model.onnx`; export Ultralytics weights with `python scripts/export_onnx.py WEIGHTS.pt`.
 
 ## Notes
 
-- The model was trained with Ultralytics YOLOv8, which is AGPL-3.0.
+- The models were trained with Ultralytics YOLO, which is AGPL-3.0.
 - Sample photos in `samples/` are field captures from the Damimas block, shared with permission.

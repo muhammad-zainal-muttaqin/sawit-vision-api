@@ -1,4 +1,4 @@
-"""Compare PyTorch (.pt) vs ONNX Runtime latency on CPU. Usage: python scripts/benchmark.py IMAGE [RUNS]"""
+"""ONNX Runtime latency (CoreML and CPU). Usage: python scripts/benchmark.py IMAGE [RUNS] [MODEL.onnx]"""
 import statistics
 import sys
 import time
@@ -24,17 +24,12 @@ from app.detector import Detector  # noqa: E402
 
 import onnxruntime as ort  # noqa: E402
 
+MODEL = sys.argv[3] if len(sys.argv) > 3 else "models/ffb-detector-yolo26n.onnx"
+
 for prov in ("CoreMLExecutionProvider", "CPUExecutionProvider"):
     if prov not in ort.get_available_providers():
         continue
-    det = Detector("models/best.onnx", providers=[prov, "CPUExecutionProvider"])
+    det = Detector(MODEL, providers=[prov, "CPUExecutionProvider"])
     med, p95 = bench(lambda: det.predict(img))
     print(f"ONNX Runtime {prov.replace('ExecutionProvider',''):7s} (incl. pre/post): median {med:.1f} ms, p95 {p95:.1f} ms, {1000/med:.1f} FPS")
 
-try:
-    from ultralytics import YOLO
-    m = YOLO("models/best.pt")
-    pt_med, pt_p95 = bench(lambda: m.predict(img, verbose=False, device="cpu"))
-    print(f"PyTorch (ultralytics predict):         median {pt_med:.1f} ms, p95 {pt_p95:.1f} ms, {1000/pt_med:.1f} FPS")
-except ImportError:
-    print("ultralytics not installed; skipped PyTorch baseline")
