@@ -38,6 +38,7 @@ I ran the model on 568 new phone photos (71 trees × 8 sides, Damimas block, Nov
 - 691 boxes in detection-only mode, median 6 ms per photo with CoreML.
 - Bunches in the crown that are found are usually correct.
 - Weak points: about a third of the boxes fall on ground, dry fronds or trees in the background, and small bunches in photos taken from far away are often missed. The training photos were closer to the crown.
+- The ripeness classes do not transfer to these photos. Red bunches that are clearly ripe come out as `Underripe` with high confidence (on `samples/palm-1.jpg` the red bunch scores 0.84 Underripe and 0.06 Ripe). Until it is retrained on this field data, use `agnostic=true` (detection only) and treat the ripeness label as unreliable.
 
 Next step is to label a subset of these photos and fine-tune on them.
 
