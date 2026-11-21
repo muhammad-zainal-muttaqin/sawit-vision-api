@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sawit Vision API</title>
+<style>
+  :root { --bg:#f6f7f4; --card:#fff; --ink:#1f2a24; --muted:#5f6b63; --line:#dde3dc; --accent:#2f6b4f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141a16; --card:#1c241f; --ink:#e7ece8; --muted:#9aa79f; --line:#2c3730; --accent:#7cc39c; } }
+  * { box-sizing:border-box } body { margin:0; font:15px/1.5 system-ui,sans-serif; background:var(--bg); color:var(--ink) }
+  main { max-width:960px; margin:0 auto; padding:24px 16px }
+  h1 { font-size:22px; margin:0 0 4px } p.sub { color:var(--muted); margin:0 0 20px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+  button { background:var(--accent); color:#fff; border:0; border-radius:6px; padding:8px 14px; font:inherit; cursor:pointer }
+  canvas { max-width:100%; height:auto; border-radius:6px; display:block; margin-top:12px }
+  .chips span { display:inline-block; padding:2px 10px; border-radius:99px; border:1px solid var(--line); margin:2px 4px 2px 0 }
+  table { width:100%; border-collapse:collapse; font-size:14px } td,th { text-align:left; padding:6px; border-bottom:1px solid var(--line) }
+  a { color:var(--accent) }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sawit Vision API</h1>
+  <p class="sub">Oil palm fruit bunch detection &amp; ripeness classification — YOLOv8n · ONNX Runtime · FastAPI · SQLite. <a href="/docs">API docs</a></p>
+  <div class="card">
+    <div class="row">
+      <input type="file" id="file" accept="image/*">
+      <label>Confidence <input type="number" id="conf" value="0.25" min="0.05" max="0.95" step="0.05" style="width:70px"></label>
+      <button id="go">Detect</button>
+      <span id="status" style="color:var(--muted)"></span>
+    </div>
+    <div class="chips" id="counts" style="margin-top:10px"></div>
+    <canvas id="cv"></canvas>
+  </div>
+  <div class="card">
+    <strong>Recent requests</strong> <span id="stats" style="color:var(--muted)"></span>
+    <table><thead><tr><th>#</th><th>Time (UTC)</th><th>File</th><th>Objects</th><th>Latency</th></tr></thead><tbody id="hist"></tbody></table>
+  </div>
+</main>
+<script>
+const COLORS = {Ripe:'#d9480f', Underripe:'#e8a33d', Unripe:'#2f9e44', Flower:'#ae3ec9', Abnormal:'#868e96'};
+const $ = id => document.getElementById(id);
+async function refresh() {
+  const [h, s] = await Promise.all([fetch('/history?limit=10').then(r=>r.json()), fetch('/stats').then(r=>r.json())]);
+  $('hist').innerHTML = h.map(r => `<tr><td>${r.id}</td><td>${r.created_at.replace('T',' ').slice(0,19)}</td><td>${(r.filename||'').replace(/</g,'&lt;')}</td><td>${r.n_objects}</td><td>${r.latency_ms} ms</td></tr>`).join('');
+  $('stats').textContent = s.requests ? `· ${s.requests} requests · median ${s.latency_ms_median} ms` : '';
+}
+$('go').onclick = async () => {
+  const f = $('file').files[0]; if (!f) return;
+  $('status').textContent = 'Running…';
+  const fd = new FormData(); fd.append('file', f);
+  const res = await fetch(`/detect?conf=${$('conf').value}`, {method:'POST', body:fd});
+  const j = await res.json();
+  if (!res.ok) { $('status').textContent = j.detail || 'Error'; return; }
+  $('status').textContent = `${j.count} objects · ${j.latency_ms} ms`;
+  $('counts').innerHTML = Object.entries(j.counts).map(([k,v]) => `<span style="border-color:${COLORS[k]||'#888'}">${k}: ${v}</span>`).join('');
+  const img = new Image(); img.src = URL.createObjectURL(f);
+  img.onload = () => {
+    const c = $('cv'); c.width = img.width; c.height = img.height; const g = c.getContext('2d');
+    g.drawImage(img, 0, 0); const lw = Math.max(2, img.width/400); g.lineWidth = lw; g.font = `${lw*7}px system-ui`;
+    for (const d of j.detections) {
+      const [x1,y1,x2,y2] = d.box, col = COLORS[d.label] || '#888';
+      g.strokeStyle = col; g.strokeRect(x1, y1, x2-x1, y2-y1);
+      const t = `${d.label} ${d.confidence.toFixed(2)}`, tw = g.measureText(t).width;
+      g.fillStyle = col; g.fillRect(x1, y1 - lw*9, tw + lw*2, lw*9); g.fillStyle = '#fff'; g.fillText(t, x1 + lw, y1 - lw*2);
+    }
+  };
+  refresh();
+};
+refresh();
+</script>
+</body>
+</html>
