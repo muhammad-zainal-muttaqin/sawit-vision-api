@@ -1,7 +1,7 @@
 # sawit-vision-api
 
 Finds oil palm fresh fruit bunches in a photo and grades each one from `B1` (ripe) to `B4` (unripe), the grading used in the
-[SawitMVC dataset](https://huggingface.co/datasets/ULM-DS-Lab/SawitMVC-YOLO). Served with FastAPI and ONNX Runtime; every request is logged to SQLite.
+[SawitMVC dataset](https://huggingface.co/datasets/ULM-DS-Lab/SawitMVC). Served with FastAPI and ONNX Runtime; every request is logged to SQLite.
 
 The same model runs in the browser on my site: https://muhammad-zainal-muttaqin.github.io/#demo
 
